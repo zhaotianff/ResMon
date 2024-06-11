@@ -17,6 +17,10 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+BOOL g_bMonitor = TRUE;
+HWND g_hwndClassTabControl;
+HWND g_hwndMemTabControl;
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -125,6 +129,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+    case WM_CREATE:
+    {
+        EnableMenuItem(GetMenu(hWnd), IDM_STARTMONITOR, MF_BYCOMMAND | MF_GRAYED);
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+        g_hwndClassTabControl = CreateWindowEx(0, WC_TABCONTROL, NULL, WS_CHILD | WS_VISIBLE | TCS_MULTILINE | TCS_TOOLTIPS, 0, 0, rect.right, rect.bottom, hWnd, NULL, hInst, NULL);
+
+        TCITEM tie;
+        tie.mask = TCIF_TEXT | TCIF_IMAGE;
+        tie.iImage = -1;
+        TCHAR achTemp[256];
+        tie.pszText = achTemp;
+        StringCchCopy(achTemp, _countof(achTemp), L"概览");
+        if (TabCtrl_InsertItem(g_hwndClassTabControl, 0, &tie) == -1)
+        {
+            DestroyWindow(g_hwndClassTabControl);
+            return NULL;
+        }
+
+        TCITEM subTie;
+        subTie.mask = TCIF_TEXT | TCIF_IMAGE;
+        subTie.iImage = -1;
+        TCHAR achSub[256];
+        subTie.pszText = achSub;
+        StringCchCopy(achSub, _countof(achSub), L"内存");
+
+        RECT rectClassTab{};
+        TabCtrl_AdjustRect(g_hwndClassTabControl, FALSE, &rectClassTab);
+
+        g_hwndMemTabControl = CreateWindowEx(0, WC_TABCONTROL, NULL, WS_CHILD | WS_VISIBLE | TCS_VERTICAL | TCS_TOOLTIPS, rectClassTab.left, rectClassTab.top, rect.right, rect.bottom, g_hwndClassTabControl, NULL, hInst, NULL);
+
+        if (TabCtrl_InsertItem(g_hwndMemTabControl, 0, &subTie) == -1)
+        {
+            DestroyWindow(g_hwndMemTabControl);
+            return NULL;
+        }
+
+        break;
+    }
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
@@ -136,6 +179,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
+                break;
+            case IDM_STARTMONITOR:
+            {
+                g_bMonitor = TRUE;
+                EnableMenuItem(GetMenu(hWnd), IDM_STARTMONITOR, MF_BYCOMMAND | MF_GRAYED);
+                EnableMenuItem(GetMenu(hWnd), IDM_STOPMONITOR, MF_BYCOMMAND | MF_ENABLED);
+                break;
+            }
+            case IDM_STOPMONITOR:
+            {
+                g_bMonitor = FALSE;
+                EnableMenuItem(GetMenu(hWnd), IDM_STARTMONITOR, MF_BYCOMMAND | MF_ENABLED);
+                EnableMenuItem(GetMenu(hWnd), IDM_STOPMONITOR, MF_BYCOMMAND | MF_GRAYED);
+            }
                 break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
